@@ -21,5 +21,5 @@ def index():
 
 if __name__ == "__main__":
     bot.remove_webhook()
-    bot.set_webhook(url="https://api.render.com/deploy/srv-ctt5ds78s73ckj01g?key=-U_No4RlTPw/" + TOKEN)
+    bot.set_webhook(url="https://api.render.com/deploy/srv-ctt5sd5ds78s73ckj01g?key=-U_No4RlTPw/" + TOKEN)
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
