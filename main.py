@@ -3,7 +3,7 @@ import os
 import telebot
 from flask import Flask, request
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("8170255604:AAFfGhtl1vsYJE4lQQKRvtekCeg1lqrKGiY")
 WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/"
 
 bot = telebot.TeleBot(BOT_TOKEN)
