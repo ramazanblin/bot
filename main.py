@@ -1,8 +1,9 @@
-
 from flask import Flask, request
 import telebot
+import os
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = os.getenv("TOKEN")
+RENDER_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render автоматически передаст URL
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
@@ -20,5 +21,5 @@ def index():
 
 if __name__ == "__main__":
     bot.remove_webhook()
-    bot.set_webhook(url="YOUR_RENDER_URL/" + TOKEN)
-    app.run(host="0.0.0.0", port=10000)
+    bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
