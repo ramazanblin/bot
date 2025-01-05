@@ -1,74 +1,53 @@
 
 import os
-import logging
-from flask import Flask
-from telebot import TeleBot, types
+import telebot
+from flask import Flask, request
 
-# Telegram Bot Token
-BOT_TOKEN = "8170255604:AAFfGhtl1vsYJE4lQQKRvtekCeg1lqrKGiY"
-bot = TeleBot(BOT_TOKEN)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/"
 
-# Flask app для Render
+bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# Логирование
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# Хранение курса юаня
-yuan_rate = None
-admin_id = 322878067  # Ваш Telegram ID
-
+# Bot commands and logic
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    global yuan_rate
-    if message.from_user.id == admin_id:
-        if yuan_rate is None:
-            bot.reply_to(message, "Привет! Установите курс юаня на сегодня в формате: Курс: число")
-        else:
-            bot.reply_to(message, "Привет! Вы можете изменить курс юаня или посчитать стоимость кроссовок.")
-    else:
-        bot.reply_to(message, "Привет! Напишите цену кроссовок, и я посчитаю стоимость с учётом доставки.")
+    bot.reply_to(message, "Добро пожаловать! Напишите цену кроссовок, и я рассчитаю стоимость с доставкой.")
 
-@bot.message_handler(func=lambda message: message.from_user.id == admin_id and message.text.startswith("Курс:"))
-def set_yuan_rate(message):
-    global yuan_rate
+@bot.message_handler(func=lambda message: message.text.startswith("Курс:"))
+def set_exchange_rate(message):
     try:
-        yuan_rate = float(message.text.split(":")[1].strip())
-        bot.reply_to(message, f"Курс юаня установлен: {yuan_rate} руб.")
-        logger.info(f"Курс юаня установлен: {yuan_rate} руб.")
-    except ValueError:
-        bot.reply_to(message, "Некорректный формат. Введите курс в формате: Курс: число.")
+        rate = float(message.text.split(":")[1].strip())
+        with open("exchange_rate.txt", "w") as f:
+            f.write(str(rate))
+        bot.reply_to(message, f"Курс юаня установлен: {rate} руб.")
+    except Exception:
+        bot.reply_to(message, "Ошибка: введите курс в формате 'Курс: число'.")
 
 @bot.message_handler(func=lambda message: True)
 def calculate_price(message):
-    global yuan_rate
-    if yuan_rate is None:
-        bot.reply_to(message, "Курс юаня ещё не установлен. Обратитесь к администратору.")
-        return
-
     try:
-        price_in_yuan = float(message.text.strip())
-        price_in_rub = price_in_yuan * yuan_rate + 500  # Допустим, 500 руб. доставка
-        bot.reply_to(message, f"Цена кроссовок с учётом доставки: {price_in_rub:.2f} руб.")
+        with open("exchange_rate.txt", "r") as f:
+            rate = float(f.read().strip())
+        price = float(message.text.strip())
+        total = price * rate
+        bot.reply_to(message, f"Цена с учетом доставки: {total:.2f} руб.")
+    except FileNotFoundError:
+        bot.reply_to(message, "Курс юаня еще не установлен. Обратитесь к администратору.")
     except ValueError:
-        bot.reply_to(message, "Введите корректную цену в юанях.")
+        bot.reply_to(message, "Введите корректную цену или команду.")
 
-@app.route('/')
-def home():
-    return "Бот работает!"
+# Flask routes
+@app.route("/", methods=["GET", "POST"])
+def webhook():
+    if request.method == "POST":
+        json_str = request.get_data().decode("UTF-8")
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return "OK", 200
+    return "Бот работает!", 200
 
-def start_web_server():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-
-def start_bot():
-    bot.polling(none_stop=True)
-
-if __name__ == '__main__':
-    import threading
-    bot_thread = threading.Thread(target=start_bot)
-    bot_thread.start()
-
-    web_thread = threading.Thread(target=start_web_server)
-    web_thread.start()
+if __name__ == "__main__":
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
